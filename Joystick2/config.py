@@ -125,7 +125,20 @@ config_macos = { #todo
     "red": 0
   }
 }
-
+# # Detect the OS
+# def get_system():
+#     os_name = platform.system()
+#     if os_name == "Windows":
+#         return "Windows"
+#     elif os_name == "Linux":
+#         # Further check if it's a Raspberry Pi
+#         try:
+#             with open("/sys/firmware/devicetree/base/model", "r") as f:
+#                 if "Raspberry Pi" in f.read():
+#                     return "Raspbian"
+#         except FileNotFoundError:
+#             pass
+#     return "Unknown"
 
 def get_config():
     if platform.system().lower() == "windows":

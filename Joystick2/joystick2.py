@@ -7,23 +7,28 @@ import time
 from abc import ABC, abstractmethod
 from config import get_config, get_GPIO #local config
 
-#launch pigpio if Linux & return True, else return False
-pigpio = get_GPIO()
+#GPIO Stuff
+pigpio = get_GPIO() #launch pigpio if Linux & return True, else return False
+PPM_OUTPUT_PIN = 18  #tip
+# RING1_PIN already ground for TRRS
+RING2_PIN = 23 #aka RING for TRS
+SLEEVE_PIN = 24
 
-# Detect the OS
-def get_system():
-    os_name = platform.system()
-    if os_name == "Windows":
-        return "Windows"
-    elif os_name == "Linux":
-        # Further check if it's a Raspberry Pi
-        try:
-            with open("/sys/firmware/devicetree/base/model", "r") as f:
-                if "Raspberry Pi" in f.read():
-                    return "Raspbian"
-        except FileNotFoundError:
-            pass
-    return "Unknown"
+pi_gpio = 1 << PPM_OUTPUT_PIN
+_output = ()
+CHANNELS = ()
+prev = None
+
+if pigpio:
+    pi = pigpio.pi()
+    pi.set_mode(PPM_OUTPUT_PIN, pigpio.OUTPUT)
+    pi.wave_add_generic([pigpio.pulse(pi_gpio, 0, 2000)])
+    # padding to make deleting logic easier
+    waves = [None, None, pi.wave_create()]
+    pi.wave_send_repeat(waves[-1])
+else:
+    pi = None
+
 
 # Constants for hit-based pressure
 HIT_WINDOW = 1.0  # Seconds to track hits
@@ -520,6 +525,43 @@ while running:
             pass
         else:
             # Display Gimbal values
+            CHANNELS = ( #TAER channel order, no R
+                gimbal.get_throttle(),
+                gimbal.get_ail(),
+                gimbal.get_elev(),
+            )
+
+            #tuple for immutability
+            _output = CHANNELS
+
+            #if input hasn't changed, don't resend
+            if _output == prev:
+                pass
+
+            elif pigpio:
+                pulses, pos = [], 0
+                for value in _output:
+                    us = int(round(1500 + 500 * value)) #1000-2000us pulse with 1500 being center times +/-1 for value range
+                    pulses += [pigpio.pulse(0, pi_gpio, 300),
+                        pigpio.pulse(pi_gpio, 0, us -300)]
+                    pos += us
+                
+                pulses += [pigpio.pulse(0, pi_gpio, 300),
+                       pigpio.pulse(pi_gpio, 0, 20000 - 300 - pos - 1)]
+
+                pi.wave_add_generic(pulses)
+                waves.append(pi.wave_create())
+                pi.wave_send_using_mode(waves[-1], pigpio.WAVE_MODE_REPEAT_SYNC)
+
+                last, waves = waves[0], waves[1:]
+                if last:
+                    pi.wave_delete(last)
+            
+            else: #debug mode
+                print(str(_output))
+            
+            prev = _output
+
             text_surface = font.render(f"Gimbals -> Throttle: {gimbal.get_throttle():.3f}, Ail: {gimbal.get_ail():.3f}, Elev: {gimbal.get_elev():.3f}", True, (0, 0, 0))
             screen.blit(text_surface, (10, y_offset))
             y_offset += 20
