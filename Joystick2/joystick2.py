@@ -5,7 +5,10 @@ print(sys.path)
 import platform #to check OS
 import time
 from abc import ABC, abstractmethod
-from config import get_config #local config
+from config import get_config, get_GPIO #local config
+
+#launch pigpio if Linux & return True, else return False
+pigpio = get_GPIO()
 
 # Detect the OS
 def get_system():
@@ -279,21 +282,27 @@ class Drum_Gimbal(SimGimbal): #working
 class SteeringWheel_Gimbal(SimGimbal): #TODO
     def __init__(self, joystick: pygame.joystick.Joystick):
         super().__init__(joystick)
+        self.config = get_config()["SteeringWheel_Gimbal"]
+
         self.armed = 0 #throttle arming
         self.throttle = -1 # set throttle to "off"
 
     def steering_wheel(self):
-        return self.joystick.get_axis(0)
-    def gas_brake_pedal(self):
-        return self.joystick.get_axis(1)
+        return self.joystick.get_axis(self.config["steering"])
+    def gas_brake_combo(self):
+        return self.joystick.get_axis(self.config["gas_brake"])
+    def gas_pedal(self):
+        return self.joystick.get_axis(self.config["gas"])
+    def brake_pedal(self):
+        return self.joystick.get_axis(self.config["brake"])
     def right_paddle(self):
-        return self.joystick.get_button(10)
+        return self.joystick.get_button(self.config["right_paddle"])
     def left_paddle(self):
-        return self.joystick.get_button(11)
+        return self.joystick.get_button(self.config["left_paddle"])
     def select_button(self):
-        return self.joystick.get_button(8)
+        return self.joystick.get_button(self.config["select"])
     def start_button(self):
-        return self.joystick.get_button(9)
+        return self.joystick.get_button(self.config["start"])
 
     
     def get_throttle(self) -> float:
@@ -315,19 +324,31 @@ class SteeringWheel_Gimbal(SimGimbal): #TODO
         calibrated_ail = remap((self.steering_wheel()), -0.898, 0.884, -0.031, -1, 1, 0)
         return (calibrated_ail) #steering wheel
     def get_elev(self) -> float:
-        #def remap(num, inMin, inMax, inMid, outMin, outMax, outMid):
-        calibrated_elev = remap((self.gas_brake_pedal()), 0.421, -0.664, -0.133, -1, 1, 0)
-        return (calibrated_elev) #gas and brake pedal
+        if self.config["gas_brake"] is None: #linux doesn't have combined pedals
+            gas_mid = ((self.config["gas_max"]-self.config["gas_min"])/2)+self.config["gas_min"]
+            brake_mid = ((self.config["brake_max"]-self.config["brake_min"])/2)+self.config["brake_min"]
+            calibrated_gas = remap(self.gas_pedal(), self.config["gas_min"], self.config["gas_max"], gas_mid , 0, 1, 0.5)
+            calibrated_brake = remap(self.brake_pedal(), self.config["brake_min"], self.config["brake_max"], brake_mid , 0, -1, -0.5)
+            return (calibrated_gas + calibrated_brake)
+        
+        else: #windows has combined gas and brake
+            #def remap(num, inMin, inMax, inMid, outMin, outMax, outMid):
+            calibrated_elev = remap((self.gas_brake_combo()), self.config["gas_brake_min"], self.config["gas_brake_max"], self.config["gas_brake_mid"], -1, 1, 0)
+            return (calibrated_elev) #gas and brake pedal
 
 
 #Right Gimbal for drive, Left Trigger for Weapon
 class Xbox360_Gimbal(SimGimbal): #working
+    def __init__(self, joystick: pygame.joystick.Joystick):
+        super().__init__(joystick)
+        self.config = get_config()["Xbox360_Gimbal"]
+
     def left_trigger(self):
-        return self.joystick.get_axis(4)
+        return self.joystick.get_axis(self.config["left_trigger"])
     def right_gimbal_LR(self):
-        return self.joystick.get_axis(2)
+        return self.joystick.get_axis(self.config["right_gimbal_LR"])
     def right_gimbal_UD(self):
-        return (self.joystick.get_axis(3)*-1)
+        return (self.joystick.get_axis(self.config["right_gimbal_UD"])*-1)
 
     def get_throttle(self) -> float:
         return (self.left_trigger()) #L trigger
