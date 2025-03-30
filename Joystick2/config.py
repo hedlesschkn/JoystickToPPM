@@ -154,18 +154,19 @@ def get_config():
 def get_GPIO():
     if platform.system().lower() == "windows":
         logging.warning("pigpio library not availale on Windows, running in debug mode")
-        return False
+        return None
     elif platform.system().lower() == "darwin":
         logging.warning("pigpio library not availale on MacOS, running in debug mode")
-        return False
+        return None
     elif platform.system().lower() == "linux":
         try:
-          import pigpio
-          return True
+            import pigpio
+            logging.warning("pigpio successfully loaded")
+            return pigpio #return imported module
         except ImportError as e:
             logging.warning(e, exc_info=True)
             logging.warning("Failed to load pigpio library, running in debug mode")
-            return False
+            return None
     else:
         # or raise an exception
         return False

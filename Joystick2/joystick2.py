@@ -19,10 +19,17 @@ _output = ()
 CHANNELS = ()
 prev = None
 
-if pigpio:
-    pi = pigpio.pi()
-    pi.set_mode(PPM_OUTPUT_PIN, pigpio.OUTPUT)
-    pi.wave_add_generic([pigpio.pulse(pi_gpio, 0, 2000)])
+if pigpio: #if pigpio loaded
+    print("pigpio LOADED!!!")
+    pi = pigpio.pi() #pi accesses the loacl Pi's GPIO pins
+    pi.set_mode(PPM_OUTPUT_PIN, pigpio.OUTPUT) #set GPIO 18 as output
+    #force ring and sleeve pins to ground
+    pi.set_mode(RING2_PIN, pigpio.OUTPUT)
+    pi.set_mode(SLEEVE_PIN, pigpio.OUTPUT)
+    pi.write(RING2_PIN, 0)
+    pi.write(SLEEVE_PIN,0)
+    
+    pi.wave_add_generic([pigpio.pulse(pi_gpio, 0, 2000)]) #pulse(pin to turn on, pin to turn off, delay)
     # padding to make deleting logic easier
     waves = [None, None, pi.wave_create()]
     pi.wave_send_repeat(waves[-1])
@@ -140,12 +147,12 @@ class DDRPad_Gimbal(SimGimbal): #working
         self.throttle = -1 # set throttle to "off"
         self.ail_pressure = 0
         self.ail_max_force = 1.0
-        self.ail_growth_rate = 0.1
-        self.ail_decay_rate = 0.05
+        self.ail_growth_rate = 0.05
+        self.ail_decay_rate = 0.1
         self.elev_pressure = 0
         self.elev_max_force = 1.0
-        self.elev_growth_rate = 0.1
-        self.elev_decay_rate = 0.05
+        self.elev_growth_rate = 0.05
+        self.elev_decay_rate = 0.1
         self.ail_last_pressed = None
         self.elev_last_pressed = None
 
@@ -327,19 +334,21 @@ class SteeringWheel_Gimbal(SimGimbal): #TODO
         return (self.throttle)
     def get_ail(self) -> float:
         calibrated_ail = remap((self.steering_wheel()), -0.898, 0.884, -0.031, -1, 1, 0)
-        return (calibrated_ail) #steering wheel
+        return ((calibrated_ail)*0.5) #steering wheel
     def get_elev(self) -> float:
         if self.config["gas_brake"] is None: #linux doesn't have combined pedals
             gas_mid = ((self.config["gas_max"]-self.config["gas_min"])/2)+self.config["gas_min"]
             brake_mid = ((self.config["brake_max"]-self.config["brake_min"])/2)+self.config["brake_min"]
             calibrated_gas = remap(self.gas_pedal(), self.config["gas_min"], self.config["gas_max"], gas_mid , 0, 1, 0.5)
-            calibrated_brake = remap(self.brake_pedal(), self.config["brake_min"], self.config["brake_max"], brake_mid , 0, -1, -0.5)
-            return (calibrated_gas + calibrated_brake)
+            calibrated_brake = remap(self.brake_pedal(), self.config["brake_min"], self.config["brake_max"], brake_mid , 0, 1, 0.5)
+            print("gas: ",calibrated_gas)
+            print("brake: ",calibrated_brake)
+            return ((calibrated_gas - calibrated_brake)*0.6)
         
         else: #windows has combined gas and brake
             #def remap(num, inMin, inMax, inMid, outMin, outMax, outMid):
             calibrated_elev = remap((self.gas_brake_combo()), self.config["gas_brake_min"], self.config["gas_brake_max"], self.config["gas_brake_mid"], -1, 1, 0)
-            return (calibrated_elev) #gas and brake pedal
+            return ((calibrated_elev)*0.6) #gas and brake pedal
 
 
 #Right Gimbal for drive, Left Trigger for Weapon
@@ -368,12 +377,12 @@ class Guitar_Gimbal(SimGimbal): #working
         super().__init__(joystick)
         self.pressure = 0
         self.growth_rates = [0.1, 0.07, 0.05]  # Adjust speeds for smooth transitions
-        self.max_forces = [0.5, 0.75, 1.0]  # Max pressures for each tier
+        self.max_forces = [0.2, 0.3, 0.5]  # Max pressures for each tier
         self.decay_rate = 0.03  # Rate of returning to 0
         self.last_direction = 0  # -1 for left, 1 for right, 0 for neutral
         self.elev_pressure = 0
-        self.elev_max_force = 1.0
-        self.elev_growth_rate = 0.1
+        self.elev_max_force = 0.75
+        self.elev_growth_rate = 0.05
         self.elev_decay_rate = 0.05
         self.throttle = -1 # set throttle to "off"
 
@@ -558,6 +567,7 @@ while running:
                     pi.wave_delete(last)
             
             else: #debug mode
+                print("debug")
                 print(str(_output))
             
             prev = _output
