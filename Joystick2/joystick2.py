@@ -147,8 +147,8 @@ class DDRPad_Gimbal(SimGimbal): #working
         self.throttle = -1 # set throttle to "off"
         self.ail_pressure = 0
         self.ail_max_force = 1.0
-        self.ail_growth_rate = 0.05
-        self.ail_decay_rate = 0.1
+        self.ail_growth_rate = 0.1
+        self.ail_decay_rate = 0.25
         self.elev_pressure = 0
         self.elev_max_force = 1.0
         self.elev_growth_rate = 0.05
@@ -193,7 +193,7 @@ class DDRPad_Gimbal(SimGimbal): #working
             self.ail_decay_rate, 
             self.ail_last_pressed
             )
-        return self.ail_pressure
+        return (self.ail_pressure *.5)
 
     def get_elev(self) -> float:
         self.elev_pressure, self.elev_last_pressed = update_hold_pressure_multi(
@@ -205,7 +205,7 @@ class DDRPad_Gimbal(SimGimbal): #working
             self.elev_decay_rate, 
             self.elev_last_pressed
             )
-        return self.elev_pressure
+        return (self.elev_pressure *.7)
 
 class Drum_Gimbal(SimGimbal): #working
     def __init__(self, joystick: pygame.joystick.Joystick):
@@ -213,18 +213,18 @@ class Drum_Gimbal(SimGimbal): #working
         self.config = get_config()["Drum_Gimbal"]
         self.elev_pressure = 0.0
         self.elev_max_force = 1.0  # -1.0 to 1.0
-        self.elev_growth_rate = 0.1
-        self.elev_decay_rate = 0.05
+        self.elev_growth_rate = 0.2
+        self.elev_decay_rate = 0.1
         self.elev_hit_timestamps = []
         self.elev_hit_window = 1.0 # seconds
         self.elev_max_hits = 10 # hits per window
         self.ail_pressure = 0.0
         self.ail_max_force = 1.0  # -1.0 to 1.0
-        self.ail_growth_rate = 0.1
-        self.ail_decay_rate = 0.05
+        self.ail_growth_rate = 0.2
+        self.ail_decay_rate = 0.1
         self.ail_hit_timestamps = []
         self.ail_hit_window = 1.0 # seconds
-        self.ail_max_hits = 10 # hits per window
+        self.ail_max_hits = 5 # hits per window
         self.armed = 0 #throttle arming
         self.throttle = -1 # set throttle to "off"
     
@@ -276,7 +276,7 @@ class Drum_Gimbal(SimGimbal): #working
             self.ail_hit_window,
             self.ail_max_hits
         )
-        return self.ail_pressure
+        return (self.ail_pressure * 0.5)
     def get_elev(self) -> float:
         self.elev_pressure = update_hit_pressure(
             self.elev_pressure,
@@ -289,7 +289,7 @@ class Drum_Gimbal(SimGimbal): #working
             self.elev_hit_window,
             self.elev_max_hits
         )
-        return self.elev_pressure
+        return (self.elev_pressure * 0.7)
 
 class SteeringWheel_Gimbal(SimGimbal): #TODO
     def __init__(self, joystick: pygame.joystick.Joystick):
@@ -377,7 +377,7 @@ class Guitar_Gimbal(SimGimbal): #working
         super().__init__(joystick)
         self.pressure = 0
         self.growth_rates = [0.1, 0.07, 0.05]  # Adjust speeds for smooth transitions
-        self.max_forces = [0.2, 0.3, 0.5]  # Max pressures for each tier
+        self.max_forces = [0.1, 0.2, 0.4]  # Max pressures for each tier
         self.decay_rate = 0.03  # Rate of returning to 0
         self.last_direction = 0  # -1 for left, 1 for right, 0 for neutral
         self.elev_pressure = 0
